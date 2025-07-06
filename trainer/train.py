@@ -296,7 +296,15 @@ def train(opt, show_number = 2, amp=False):
                 
                 #show_number = min(show_number, len(labels))
                 
-                start = random.randint(0,len(labels) - show_number )    
+                # start = random.randint(0,len(labels) - show_number )    
+                max_start = len(labels) - show_number
+                # --- guard condition
+                if max_start <= 0:
+                    start = 0  # or skip the visualization
+                else:
+                    start = random.randint(0, max_start)
+                # --- end guard condtion
+
                 for gt, pred, confidence in zip(labels[start:start+show_number], preds[start:start+show_number], confidence_score[start:start+show_number]):
                     if 'Attn' in opt.Prediction:
                         gt = gt[:gt.find('[s]')]

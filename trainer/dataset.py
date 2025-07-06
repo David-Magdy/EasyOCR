@@ -5,12 +5,13 @@ import six
 import math
 import torch
 import pandas  as pd
-
+import cv2
 from natsort import natsorted
 from PIL import Image
 import numpy as np
 from torch.utils.data import Dataset, ConcatDataset, Subset
-from torch._utils import _accumulate
+#from torch._utils import _accumulate
+from itertools import accumulate as _accumulate
 import torchvision.transforms as transforms
 
 def contrast_grey(img):
@@ -98,12 +99,12 @@ class Batch_Balanced_Dataset(object):
 
         for i, data_loader_iter in enumerate(self.dataloader_iter_list):
             try:
-                image, text = data_loader_iter.next()
+                image, text = next(data_loader_iter)
                 balanced_batch_images.append(image)
                 balanced_batch_texts += text
             except StopIteration:
                 self.dataloader_iter_list[i] = iter(self.data_loader_list[i])
-                image, text = self.dataloader_iter_list[i].next()
+                image, text = next(self.dataloader_iter_list[i])
                 balanced_batch_images.append(image)
                 balanced_batch_texts += text
             except ValueError:
@@ -146,7 +147,7 @@ class OCRDataset(Dataset):
         self.root = root
         self.opt = opt
         print(root)
-        self.df = pd.read_csv(os.path.join(root,'labels.csv'), sep='^([^,]+),', engine='python', usecols=['filename', 'words'], keep_default_na=False)
+        self.df = pd.read_csv(os.path.join(root,'labels.csv'), engine='python', usecols=['filename', 'words'], keep_default_na=False)
         self.nSamples = len(self.df)
 
         if self.opt.data_filtering_off:
@@ -256,6 +257,7 @@ class AlignCollate(object):
                 else:
                     resized_w = math.ceil(self.imgH * ratio)
 
+                #image = cv2.bilateralFilter(image, d=9, sigmaColor=75, sigmaSpace=75)
                 resized_image = image.resize((resized_w, self.imgH), Image.BICUBIC)
                 resized_images.append(transform(resized_image))
                 # resized_image.save('./image_test/%d_test.jpg' % w)

@@ -10,13 +10,38 @@ import torch.optim as optim
 import torch.utils.data
 from torch.cuda.amp import autocast, GradScaler
 import numpy as np
+# import mlflow
 
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from model import Model
-from test import validation
+from test2 import validation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import math
+from torch.optim.lr_scheduler import LambdaLR
+def get_cosine_warmup_cosine_decay_iter_scheduler(optimizer,
+                                                warmup_iters: int,
+                                                total_iters: int,
+                                                base_lr: float,
+                                                min_lr: float):
+    """
+    - Cosine warm-up: 0 → base_lr over `warmup_iters`
+    - Cosine decay:    base_lr → min_lr over (total_iters - warmup_iters)
+    """
+    min_factor = min_lr / base_lr
 
+    def lr_lambda(iter):
+        if iter < warmup_iters:
+            # half-cosine ramp from 0 → 1
+            return (1.0 - math.cos(math.pi * iter / warmup_iters)) / 2.0
+        # cosine decay from 1 → min_factor
+        progress = (iter - warmup_iters) / max(1, total_iters - warmup_iters)
+        # f goes from 1 → 0: 0.5*(1 + cos(pi*progress))
+        decay_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
+        # map [0→1] decay_factor to [min_factor→1]
+        return min_factor + (1.0 - min_factor) * decay_factor
+
+    return LambdaLR(optimizer, lr_lambda)
 def count_parameters(model):
     print("Modules, Parameters")
     total_params = 0
@@ -109,9 +134,9 @@ def train(opt, show_number = 2, amp=False):
     
     """ setup loss """
     if 'CTC' in opt.Prediction:
-        criterion = torch.nn.CTCLoss(zero_infinity=True).to(device)
+        criterion = torch.nn.CTCLoss(zero_infinity=True)
     else:
-        criterion = torch.nn.CrossEntropyLoss(ignore_index=0).to(device)  # ignore [GO] token = ignore index 0
+        criterion = torch.nn.CrossEntropyLoss(ignore_index=0)  # ignore [GO] token = ignore index 0
     # loss averager
     loss_avg = Averager()
 
@@ -138,7 +163,9 @@ def train(opt, show_number = 2, amp=False):
     # setup optimizer
     if opt.optim=='adam':
         #optimizer = optim.Adam(filtered_parameters, lr=opt.lr, betas=(opt.beta1, 0.999))
-        optimizer = optim.Adam(filtered_parameters)
+        optimizer = optim.Adam(filtered_parameters,lr=opt.lr,betas=(opt.beta1,0.999))
+    elif opt.optim=='SGD':
+        optimizer = optim.SGD(filtered_parameters, lr=opt.lr, momentum=0.9, weight_decay=0.0001)
     else:
         optimizer = optim.Adadelta(filtered_parameters, lr=opt.lr, rho=opt.rho, eps=opt.eps)
     print("Optimizer:")
@@ -163,7 +190,7 @@ def train(opt, show_number = 2, amp=False):
             print(f'continue to train, start_iter: {start_iter}')
         except:
             pass
-
+    scheduler = get_cosine_warmup_cosine_decay_iter_scheduler(optimizer=optimizer,warmup_iters=1000,total_iters=opt.num_iter,base_lr=opt.lr,min_lr=0.001)
     start_time = time.time()
     best_accuracy = -1
     best_norm_ED = -1
@@ -218,6 +245,8 @@ def train(opt, show_number = 2, amp=False):
             cost.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), opt.grad_clip) 
             optimizer.step()
+            current_lr = optimizer.param_groups[0]['lr']
+            scheduler.step()
         loss_avg.add(cost)
 
         # validation part
@@ -236,7 +265,13 @@ def train(opt, show_number = 2, amp=False):
                 # training loss and validation loss
                 loss_log = f'[{i}/{opt.num_iter}] Train loss: {loss_avg.val():0.5f}, Valid loss: {valid_loss:0.5f}, Elapsed_time: {elapsed_time:0.5f}'
                 loss_avg.reset()
+                # mlflow.log_metric("val_loss", valid_loss, step=i)
+                # mlflow.log_metric("val_accuracy", current_accuracy, step=i)
+                # mlflow.log_metric("val_norm_ED", current_norm_ED, step=i)
+                # mlflow.log_metric("train_loss", cost.item(), step=i)
 
+
+                
                 current_model_log = f'{"Current_accuracy":17s}: {current_accuracy:0.3f}, {"Current_norm_ED":17s}: {current_norm_ED:0.4f}'
 
                 # keep best accuracy model (on valid dataset)
@@ -250,6 +285,8 @@ def train(opt, show_number = 2, amp=False):
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
                 print(loss_model_log)
+                print("Current learning rate: ", str(current_lr))
+                log.write(f"Current learning rate: {current_lr}")
                 log.write(loss_model_log + '\n')
 
                 # show some predicted results
@@ -277,6 +314,8 @@ def train(opt, show_number = 2, amp=False):
                 model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
 
         if i == opt.num_iter:
+            torch.save(
+                model.state_dict(), f'./saved_models/{opt.experiment_name}/last_iter.pth')
             print('end the training')
             sys.exit()
         i += 1

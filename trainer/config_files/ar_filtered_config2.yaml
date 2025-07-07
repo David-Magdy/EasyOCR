@@ -6,13 +6,13 @@ train_data: 'all_data/train'
 valid_data: 'all_data/validation'
 manualSeed: 1111
 workers: 1
-batch_size: 32 #32
+batch_size: 4 #32
 num_iter: 10000
 valInterval: 100
 saved_model: '/kaggle/input/pretrained-weights/arabic.pth' #'saved_models/en_filtered/iter_300000.pth'
 FT: True
 optim: 'adam' # default is Adadelta
-lr: 0.1
+lr: 0.0001
 beta1: 0.9
 rho: 0.95
 eps: 0.00000001
@@ -41,5 +41,5 @@ output_channel: 512
 hidden_size: 512
 decode: 'greedy'
 new_prediction: True
-freeze_FeatureFxtraction: False
+freeze_FeatureFxtraction: True
 freeze_SequenceModeling: False

@@ -1,0 +1,45 @@
+number: '١٢٣٤٥٦٧٨٩٠'
+symbol: ""
+lang_char: ''
+experiment_name: 'arabic_numerals_2'
+train_data: 'all_data/train'
+valid_data: 'all_data/validation'
+manualSeed: 1111
+workers: 1
+batch_size: 8 #32
+num_iter: 2500
+valInterval: 100
+saved_model: '/kaggle/input/pretrained-weights/arabic.pth' #'saved_models/en_filtered/iter_300000.pth'
+FT: True
+optim: 'SGD' # default is Adadelta
+lr: 0.0001
+beta1: 0.9
+rho: 0.95
+eps: 0.00000001
+grad_clip: 5
+#Data processing
+select_data: 'train' # this is dataset folder in train_data
+batch_ratio: '1' 
+total_data_usage_ratio: 1.0
+batch_max_length: 50 
+imgH: 64
+imgW: 600
+rgb: False
+contrast_adjust: False
+sensitive: True
+PAD: True
+contrast_adjust: 0.0
+data_filtering_off: False
+# Model Architecture
+Transformation: 'None'
+FeatureExtraction: 'ResNet'
+SequenceModeling: 'BiLSTM'
+Prediction: 'CTC'
+num_fiducial: 20
+input_channel: 1
+output_channel: 512
+hidden_size: 512
+decode: 'greedy'
+new_prediction: True
+freeze_FeatureFxtraction: True
+freeze_SequenceModeling: False

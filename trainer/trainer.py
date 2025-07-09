@@ -34,7 +34,7 @@ def get_config(file_path):
     os.makedirs(f'./saved_models/{opt.experiment_name}', exist_ok=True)
     return opt
 
-opt = get_config("config_files/ar_filtered_config2.yaml")
+opt = get_config("config_files/ar_filtered_config3.yaml")
 # with mlflow.start_run(run_name="easyocr_aug"):
 #     mlflow.log_param("experiment_name", opt.experiment_name)
 #     mlflow.log_param("batch_size", opt.batch_size)

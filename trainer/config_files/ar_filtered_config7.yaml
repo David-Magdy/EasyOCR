@@ -1,7 +1,7 @@
 number: '٩٠١٢٣٤٥٦٧٨'
 symbol: ""
-lang_char: 'ص'
-experiment_name: 'arabic_numerals_6'
+lang_char: 'ئءؤرىةوزظطكمنتالبيسشدجحخهعغفقثصض'
+experiment_name: 'arabic_numerals_7'
 train_data: 'all_data/train'
 valid_data: 'all_data/validation'
 manualSeed: 1111
